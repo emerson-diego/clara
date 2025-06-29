@@ -49,6 +49,7 @@ O **LEIA** (*Legal-Administrative Enrichment and Information Annotation Dataset*
 
 - Python 3.8+
 - MongoDB
+- Google Chrome (para automação web)
 - Chaves de API do Google Gemini
 
 ### Configuração
@@ -91,7 +92,8 @@ leia/
 │   ├── gemini_classificacao_utils.py     # Utilitários de classificação
 │   ├── sintetizador_de_chunks.py         # Geração de dados sintéticos
 │   ├── aumentador_dataset_sigiloso.py    # Aumento da classe sigilosa
-│   └── rotular_chunks_gemini.py          # Rotulagem automática
+│   ├── rotular_chunks_gemini.py          # Rotulagem automática
+│   └── revisar_com_gemini-2.5-flash.py   # Revisão automática via web
 └── README.md
 ```
 
@@ -174,6 +176,31 @@ Script para transferir dados classificados para o dataset final.
 - Seleção dos melhores exemplos por confiança
 - Mapeamento de fontes (reformulação/sintético)
 - Preparação para treinamento
+
+### `revisar_com_gemini-2.5-flash.py`
+Script de automação web para revisão de classificações usando a interface web do Gemini.
+
+**Funcionalidades:**
+- Automação via Selenium WebDriver
+- Conexão com Chrome em modo debug
+- Revisão automática de documentos com alta confiança
+- Tratamento robusto de timeouts e erros
+
+**Pré-requisitos:**
+```bash
+# Iniciar Chrome em modo debug
+google-chrome --remote-debugging-port=9222 --user-data-dir=~/.config/google-chrome/Default
+```
+
+**Uso:**
+```bash
+python scripts/revisar_com_gemini-2.5-flash.py
+```
+
+**Configurações:**
+- `DELAY_ENTRE_DOCUMENTOS`: 60 segundos (ajustável)
+- `CHROME_DEBUG_PORT`: 9222 (padrão)
+- Recarregamento automático a cada 100 documentos
 
 ## 📈 Estatísticas do Dataset
 
