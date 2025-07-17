@@ -1,26 +1,27 @@
-# LEIA: Dataset para Classificação de Conformidade Documental
+# CLARA: Dataset para Classificação de Conformidade Documental
 
 [![License: CC BY-SA 4.0](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
 ## 📋 Visão Geral
 
-O **LEIA** (*Legal-Administrative Enrichment and Information Annotation Dataset*) é um dataset público e balanceado para classificação de conformidade documental no setor público brasileiro. O projeto aborda o delicado equilíbrio entre transparência (Lei de Acesso à Informação - LAI) e proteção de dados (Lei Geral de Proteção de Dados - LGPD).
+O **CLARA** (*Classificação Legal de Arquivos e Registros Administrativos*) é um dataset público e balanceado para classificação de conformidade documental no setor público brasileiro. O projeto aborda o delicado equilíbrio entre transparência (Lei de Acesso à Informação - LAI) e proteção de dados (Lei Geral de Proteção de Dados - LGPD).
 
 ### 🎯 Objetivos
 
 - Fornecer um dataset balanceado para treinamento de modelos de IA
 - Facilitar a automação da classificação documental no setor público
-- Garantir total privacidade através de dados sintéticos
+- Garantir total privacidade através de reformulação contextual e dados sintéticos
 - Fomentar pesquisas em Processamento de Linguagem Natural (PLN)
 
 ### 🔑 Características Principais
 
-- **6.000 registros** balanceados (2.000 por classe)
+- **~6.000 registros** balanceados (~2.000 por classe)
 - **3 classes de acesso**: Sigiloso (0), Interno (1), Público (2)
-- **100% dados sintéticos** para proteção de privacidade
-- **Compatível** com modelos Transformer (BERT, RoBERTa, etc.)
+- **100% dados fictícios** para proteção de privacidade
+- **Compatível** com modelos Transformer (BERT, RoBERTa, Legal-BERT)
 - **Validação humana** em 10% dos registros
+- **F1-Score de 0.94** com Legal-BERT
 
 ## 📊 Estrutura do Dataset
 
@@ -36,10 +37,10 @@ O **LEIA** (*Legal-Administrative Enrichment and Information Annotation Dataset*
 
 ```json
 {
-  "_id": "ObjectID",
+  "_id": "ObjectId",
   "texto": "String - Conteúdo textual do documento",
   "classificacao_acesso": "Integer - Rótulo (0, 1, 2)",
-  "fonte": "String - 'reformulação' ou 'sintético'"
+  "fonte": "String - Origem (reformulação/sintético)"
 }
 ```
 
@@ -49,15 +50,14 @@ O **LEIA** (*Legal-Administrative Enrichment and Information Annotation Dataset*
 
 - Python 3.8+
 - MongoDB
-- Google Chrome (para automação web)
 - Chaves de API do Google Gemini
 
 ### Configuração
 
 1. **Clone o repositório:**
 ```bash
-git clone https://github.com/emerson-diego/leia.git
-cd leia
+git clone https://github.com/emerson-diego/clara.git
+cd clara
 ```
 
 2. **Instale as dependências:**
@@ -85,71 +85,89 @@ GEMINI_API_KEY_5=chave_adicional_2
 ## 📁 Estrutura do Projeto
 
 ```
-leia/
-├── dataset_final/
-│   └── dataset_treinamento.chunks_treinamento.json  # Dataset final
+clara/
 ├── scripts/
-│   ├── gemini_classificacao_utils.py     # Utilitários de classificação
-│   ├── sintetizador_de_chunks.py         # Geração de dados sintéticos
-│   ├── aumentador_dataset_sigiloso.py    # Aumento da classe sigilosa
-│   ├── rotular_chunks_gemini.py          # Rotulagem automática
-│   └── revisar_com_gemini-2.5-flash.py   # Revisão automática via web
-└── README.md
+│   ├── gemini_classificacao_utils.py     # Classificação semiautomática
+│   ├── sintetizador_de_chunks.py         # Reformulação contextual
+│   ├── aumentador_dataset_sigiloso.py    # Geração sintética
+│   └── rotular_chunks_gemini.py          # Rotulagem automática
+├── DOCUMENTACAO_TECNICA.md               # Documentação técnica detalhada
+└── README.md                             # Este arquivo
 ```
 
 ## 🔧 Pipeline de Construção
 
-O dataset LEIA foi construído através de um pipeline de 9 etapas:
+O dataset CLARA foi construído através de um pipeline metodológico de 9 etapas:
 
 ### 1. Coleta de Dados
-- Extração de documentos públicos do TRT-13
-- Foco em documentos já classificados como públicos
-- Armazenamento em MongoDB
+- Extração de documentos públicos do TRT-13 (PROAD-OUV)
+- Foco em documentos classificados como públicos (com premissa de rótulos incorretos)
+- Migração Oracle → MongoDB para processamento modular
 
-### 2. Pré-processamento
-- Extração de texto de PDFs (OCR quando necessário)
-- Anonimização com API Shiva (NER + Presidio + Regex)
-- Segmentação em chunks de ~200 palavras
+### 2. Extração de Metadados
+- Captura de informações estruturadas (assunto, data, classificação)
+- Armazenamento em MongoDB com rastreabilidade completa
 
-### 3. Enriquecimento
-- **Reformulação Contextual**: Reescreve textos preservando significado
-- **Geração Sintética**: Cria novos exemplos para classe minoritária
+### 3. Extração de Texto
+- Processamento de PDFs com abordagem condicional
+- Extração direta + OCR para documentos escaneados
 
-### 4. Rotulagem e Validação
-- Classificação automática com Gemini 2.5 Flash
-- Validação humana em amostra de 10%
-- Índice Kappa de Cohen: 0.512 (concordância moderada)
+### 4. Anonimização
+- API Shiva (TRT-13): NER + Microsoft Presidio + Regex
+- Substituição de PIIs por placeholders genéricos
 
-### 5. Balanceamento
-- Subamostragem inteligente das classes majoritárias
-- Preservação dos exemplos com maior confiança
+### 5. Segmentação
+- Divisão em chunks de ~200 palavras
+- Compatibilidade com modelos Transformer (limite de 512 tokens)
+
+### 6. Reformulação Contextual
+- **Técnica Principal**: Reescrita semântica via Gemini 2.5 Flash
+- **Objetivo**: Camada adicional de privacidade + desvinculação das formulações originais
+- **Preservação**: Significado e contexto mantidos
+
+### 7. Geração Sintética
+- **Foco**: Classe minoritária 'Sigiloso'
+- **Estratégia**: Criação de dados (Data Creation)
+- **Template**: Persona de especialistas (Corregedor-Geral + DPO)
+- **Resultado**: 1.500 trechos adicionais
+
+### 8. Rotulagem Semiautomática
+- **Método**: Classificação zero-shot com Gemini 2.5 Flash
+- **Saída**: Classe + justificativa + confiança
+- **Validação**: Kappa de Cohen = 0.865 ("quase perfeito")
+
+### 9. Balanceamento Final
+- **Estratégia**: Subamostragem inteligente baseada em confiança
+- **Resultado**: ~2.000 registros por classe (~6.000 total)
 
 ## 🛠️ Scripts Disponíveis
 
 ### `gemini_classificacao_utils.py`
-Utilitários para classificação automática de documentos usando a API Gemini.
+Utilitários para classificação semiautomática de documentos usando a API Gemini.
 
 **Funcionalidades:**
-- Classificação de chunks de texto
-- Gerenciamento de múltiplas chaves de API
-- Tratamento de erros e rate limiting
+- Classificação zero-shot com base em LGPD/LAI
+- Parsing estruturado de respostas (classificação + justificativa + confiança)
+- Processamento automático de chunks pendentes no MongoDB
+- Integração com coleção `chunks_treinamento`
 
 **Uso:**
 ```python
 from scripts.gemini_classificacao_utils import classificar_chunk_gemini
 
-classificacao, justificativa, confianca, modelo, versao = classificar_chunk_gemini(
-    texto, gemini_keys, gemini_key_names, model
-)
+# Classificação individual
+classificacao, justificativa, confianca = classificar_chunk_gemini(texto, model)
 ```
 
 ### `sintetizador_de_chunks.py`
-Gera versões sintéticas de documentos através de reformulação contextual.
+Implementa a reformulação contextual para adicionar camada de privacidade.
 
 **Funcionalidades:**
-- Processamento em lotes para eficiência
-- Substituição de placeholders anonimizados
-- Preservação de contexto e jargão técnico
+- Reescrita semântica completa preservando significado
+- Substituição obrigatória de placeholders anonimizados
+- Desvinculação das formulações originais
+- Preservação de contexto, nível de sigilo e jargão técnico
+- Limitação de tamanho (máximo 200 palavras)
 
 **Uso:**
 ```bash
@@ -157,12 +175,13 @@ python scripts/sintetizador_de_chunks.py
 ```
 
 ### `aumentador_dataset_sigiloso.py`
-Cria dados sintéticos específicos para a classe "Sigiloso".
+Cria dados sintéticos específicos para a classe "Sigiloso" através de geração criativa.
 
 **Funcionalidades:**
-- Geração de documentos médicos, jurídicos e de RH
-- Diferentes níveis de sigilo (Alto e Médio)
-- Transformação conceitual de documentos de inspiração
+- Template estruturado com persona de especialistas
+- Processo em 4 etapas: semente conceitual → combinação de eixos → transformação → geração
+- Criação de 1.500 trechos adicionais para classe minoritária
+- Tipos: licenças médicas, processos disciplinares, dados sensíveis LGPD
 
 **Uso:**
 ```bash
@@ -170,58 +189,56 @@ python scripts/aumentador_dataset_sigiloso.py
 ```
 
 ### `rotular_chunks_gemini.py`
-Script para transferir dados classificados para o dataset final.
+Script para rotulagem semiautomática usando classificação zero-shot.
 
 **Funcionalidades:**
-- Seleção dos melhores exemplos por confiança
-- Mapeamento de fontes (reformulação/sintético)
-- Preparação para treinamento
-
-### `revisar_com_gemini-2.5-flash.py`
-Script de automação web para revisão de classificações usando a interface web do Gemini.
-
-**Funcionalidades:**
-- Automação via Selenium WebDriver
-- Conexão com Chrome em modo debug
-- Revisão automática de documentos com alta confiança
-- Tratamento robusto de timeouts e erros
-
-**Pré-requisitos:**
-```bash
-# Iniciar Chrome em modo debug
-google-chrome --remote-debugging-port=9222 --user-data-dir=~/.config/google-chrome/Default
-```
+- Classificação zero-shot com Gemini 2.5 Flash
+- Saída estruturada: classe + justificativa + confiança
+- Integração com MongoDB (`chunks_treinamento`)
+- Controle de qualidade baseado em escore de confiança
 
 **Uso:**
 ```bash
-python scripts/revisar_com_gemini-2.5-flash.py
+python scripts/rotular_chunks_gemini.py
 ```
-
-**Configurações:**
-- `DELAY_ENTRE_DOCUMENTOS`: 60 segundos (ajustável)
-- `CHROME_DEBUG_PORT`: 9222 (padrão)
-- Recarregamento automático a cada 100 documentos
 
 ## 📈 Estatísticas do Dataset
 
+### Composição Final
+
 | Métrica | Valor |
 |---------|-------|
-| **Total de Registros** | 6.000 |
-| **Registros por Classe** | 2.000 |
+| **Total de Registros** | ~6.000 |
+| **Sigiloso (0)** | ~2.000 registros |
+| **Interno (1)** | ~2.000 registros |
+| **Público (2)** | ~2.000 registros |
 | **Comprimento Médio** | ~200 palavras |
-| **Formato** | JSON |
-| **Tamanho do Arquivo** | ~6.8MB |
+| **Origem dos Dados** | Reformulação + Sintética |
+
+### Validação de Qualidade
+
+| Métrica | Valor |
+|---------|-------|
+| **Kappa de Cohen** | 0.865 ("quase perfeito") |
+| **Acurácia (LLM vs Humano)** | ~91% |
+| **Validação Humana** | 10% dos registros |
+| **F1-Score (Legal-BERT)** | 0.94 |
 
 ## 🎯 Aplicações
 
 ### Treinamento de Modelos
 ```python
-import json
 import pandas as pd
+from pymongo import MongoClient
 
-# Carregar o dataset
-with open('dataset_final/dataset_treinamento.chunks_treinamento.json', 'r') as f:
-    data = json.load(f)
+# Conectar ao MongoDB
+client = MongoClient("mongodb://usuario:senha@localhost:27017/")
+db = client['dataset_treinamento']
+collection = db['chunks_treinamento']
+
+# Carregar dados
+cursor = collection.find({})
+data = list(cursor)
 
 # Converter para DataFrame
 df = pd.DataFrame(data)
@@ -230,6 +247,16 @@ df = pd.DataFrame(data)
 X = df['texto'].values
 y = df['classificacao_acesso'].values
 ```
+
+### Validação Experimental
+O dataset foi validado experimentalmente com o modelo Legal-BERT:
+
+- **Configuração**: 80% treino, 10% validação, 10% teste
+- **Resultados por classe**:
+  - Sigiloso (0): F1-Score = 0.94
+  - Interno (1): F1-Score = 0.93  
+  - Público (2): F1-Score = 0.94
+- **F1-Score médio**: 0.94
 
 ### Análise de Risco
 - Identificação de padrões em documentos propensos a erros
@@ -241,9 +268,9 @@ y = df['classificacao_acesso'].values
 ### Proteções Implementadas
 
 1. **Anonimização Completa**: Remoção de PIIs (CPF, CNPJ, nomes)
-2. **Dados Sintéticos**: 100% dos textos são fictícios
-3. **Reformulação Contextual**: Desvinculação de formulações originais
-4. **Validação Humana**: Verificação de qualidade e privacidade
+2. **Reformulação Contextual**: Reescrita semântica completa
+3. **Dados Sintéticos**: Geração artificial para classe minoritária
+4. **Validação Humana**: Verificação de qualidade e privacidade (10%)
 
 ### Conformidade Legal
 
@@ -252,14 +279,21 @@ y = df['classificacao_acesso'].values
 - ✅ Princípios de ciência aberta
 - ✅ Licença Creative Commons (CC BY-SA 4.0)
 
+### Garantias de Privacidade
+
+**100% dos textos no dataset CLARA são fictícios.** Nenhum documento original está presente no corpus público. Os dados foram gerados através de:
+
+1. **Reformulação contextual** de documentos reais (alteração completa de texto e estrutura)
+2. **Geração sintética** de novos documentos para balanceamento
+
 ## 📚 Citação
 
-Se você usar o dataset LEIA em sua pesquisa, cite:
+Se você usar o dataset CLARA em sua pesquisa, cite:
 
 ```bibtex
-@article{araujo2024leia,
-  title={LEIA: Um Dataset Curado e Enriquecido para Classificação de Conformidade Documental no Setor Público Brasileiro},
-  author={Araujo, Emerson Diego da Costa and Pessoa, Diego Ernesto Rosa},
+@article{araujo2024clara,
+  title={CLARA: Um Dataset Validado e Enriquecido para Classificação de Conformidade Documental no Setor Público Brasileiro},
+  author={Araujo, Emerson Diego da Costa and Pessoa, Diego Ernesto Rosa and Fernandes, Damires Yluska Souza and Rêgo, Alex Sandro da Cunha},
   journal={[Nome do Periódico]},
   year={2024},
   publisher={[Editora]}
@@ -282,26 +316,57 @@ Este projeto está licenciado sob a Licença Creative Commons Attribution-ShareA
 
 ## 👥 Autores
 
-- **Emerson Diego da Costa Araujo** - [emerson.diego@academico.ifpb.edu.br](mailto:emerson.diego@academico.ifpb.edu.br)
+- **Emerson Diego da Costa Araujo** - [emerson.diego@academico.ifpb.edu.br](mailto:emerson.diego@academico.ifpb.edu.br) *[autor correspondente]*
 - **Diego Ernesto Rosa Pessoa** - [diego.pessoa@ifpb.edu.br](mailto:diego.pessoa@ifpb.edu.br)
+- **Damires Yluska Souza Fernandes** - [damires@ifpb.edu.br](mailto:damires@ifpb.edu.br)
+- **Alex Sandro da Cunha Rêgo** - [alex@ifpb.edu.br](mailto:alex@ifpb.edu.br)
 
-**Instituição:** Instituto Federal da Paraíba (IFPB)
+**Instituição:** Instituto Federal da Paraíba (IFPB), João Pessoa, Paraíba, Brasil
 
 ## 📞 Contato
 
 Para dúvidas, sugestões ou problemas:
 
 - **Email:** emerson.diego@academico.ifpb.edu.br
-- **Issues:** [GitHub Issues](https://github.com/emerson-diego/leia/issues)
-- **Repositório:** [https://github.com/emerson-diego/leia](https://github.com/emerson-diego/leia)
+- **Issues:** [GitHub Issues](https://github.com/emerson-diego/clara/issues)
+- **Repositório:** [https://github.com/emerson-diego/clara](https://github.com/emerson-diego/clara)
 
 ## 🔮 Trabalhos Futuros
 
 - [ ] Dataset dinâmico com atualizações contínuas
-- [ ] Expansão para outros órgãos públicos
+- [ ] Expansão interinstitucional para outros órgãos públicos
 - [ ] Modelos pré-treinados específicos para o domínio
 - [ ] Interface web para classificação interativa
+- [ ] API REST para classificação em tempo real
 - [ ] Integração com sistemas de gestão documental
+
+## 📊 Performance do Dataset
+
+### Experimento de Validação
+
+O dataset CLARA foi validado experimentalmente através do fine-tuning do modelo Legal-BERT:
+
+**Configuração:**
+- **Modelo**: Legal-BERT (Transformer pré-treinado)
+- **Hardware**: GPU NVIDIA A100
+- **Divisão**: 80% treino, 10% validação, 10% teste
+- **Parâmetros**: 3 épocas, batch size 16, learning rate 2×10⁻⁵
+
+**Resultados:**
+
+| Classe | Precisão | Revocação | F1-Score | Suporte |
+|--------|----------|-----------|----------|---------|
+| Sigiloso (0) | 0.95 | 0.93 | **0.94** | 200 |
+| Interno (1) | 0.92 | 0.94 | **0.93** | 200 |
+| Público (2) | 0.94 | 0.94 | **0.94** | 200 |
+| **Macro Avg** | **0.94** | **0.94** | **0.94** | 600 |
+
+### Análise dos Resultados
+
+- **Performance equilibrada** entre todas as classes
+- **Poucos erros** entre classes extremas (Sigiloso vs Público)
+- **Erros residuais** concentrados entre classes adjacentes
+- **Excelente baseline** para pesquisas futuras
 
 ---
 

@@ -1,8 +1,8 @@
-# Documentação Técnica - Dataset LEIA
+# Documentação Técnica - Dataset CLARA
 
 ## 📋 Sumário Executivo
 
-O LEIA (*Legal-Administrative Enrichment and Information Annotation Dataset*) é um dataset público para classificação de conformidade documental no setor público brasileiro. Esta documentação técnica detalha a arquitetura, metodologia e implementação do projeto.
+O CLARA (*Classificação Legal de Arquivos e Registros Administrativos*) é um dataset público para classificação de conformidade documental no setor público brasileiro. Esta documentação técnica detalha a arquitetura, metodologia e implementação do projeto.
 
 ## 🏗️ Arquitetura do Sistema
 
@@ -10,26 +10,26 @@ O LEIA (*Legal-Administrative Enrichment and Information Annotation Dataset*) é
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Coleta de     │    │  Pré-           │    │  Enriquecimento │
-│   Dados         │───▶│  Processamento  │───▶│  e Geração      │
-│   (TRT-13)      │    │  (Anonimização) │    │  Sintética      │
+│   Coleta de     │    │  Extração de    │    │  Anonimização   │
+│   Dados         │───▶│  Texto e        │───▶│  e              │
+│   (TRT-13)      │    │  Metadados      │    │  Segmentação    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                                        │
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Dataset       │◀───│  Validação      │◀───│  Rotulagem      │
-│   Final         │    │  Humana         │    │  Automática     │
-│   (JSON)        │    │  (10%)          │    │  (Gemini)       │
+│   Dataset       │◀───│  Rotulagem      │◀───│  Enriquecimento │
+│   Final         │    │  e Validação    │    │  (Reformulação  │
+│   (JSON)        │    │  (10%)          │    │  + Sintética)   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ### Componentes Principais
 
-1. **Sistema de Coleta**: Extração de documentos do TRT-13
+1. **Sistema de Coleta**: Extração de documentos do TRT-13 (PROAD-OUV)
 2. **Pipeline de Processamento**: Anonimização e segmentação
-3. **Sistema de Enriquecimento**: Geração de dados sintéticos
-4. **Sistema de Classificação**: Rotulagem automática com LLMs
-5. **Sistema de Validação**: Curadoria humana
-6. **Sistema de Armazenamento**: MongoDB + JSON
+3. **Sistema de Enriquecimento**: Reformulação contextual e geração sintética
+4. **Sistema de Classificação**: Rotulagem semiautomática com LLMs
+5. **Sistema de Validação**: Curadoria humana (10% dos registros)
+6. **Sistema de Armazenamento**: MongoDB (coleção `chunks_treinamento`)
 
 ## 🔧 Metodologia de Construção
 
@@ -39,14 +39,19 @@ O LEIA (*Legal-Administrative Enrichment and Information Annotation Dataset*) é
 - **Fonte**: Sistema PROAD-OUV do TRT-13
 - **Critério**: Apenas documentos classificados como "públicos"
 - **Formato**: Metadados + conteúdo binário (BLOB)
-- **Armazenamento**: MongoDB
+- **Armazenamento**: Oracle → MongoDB
 
-#### Etapa 2: Extração de Texto
+#### Etapa 2: Extração de Metadados
+- **Captura**: Informações estruturadas (assunto, data, classificação)
+- **Armazenamento**: MongoDB para processamento modular
+- **Rastreabilidade**: Cada etapa gera nova coleção
+
+#### Etapa 3: Extração de Texto
 - **Tecnologia**: PyPDF2 + OCR (quando necessário)
-- **Critério de Qualidade**: Avaliação automática de legibilidade
-- **Fallback**: OCR para documentos escaneados
+- **Abordagem**: Condicional (texto nativo → OCR se baixa qualidade)
+- **Formato**: Exclusivamente PDFs
 
-#### Etapa 3: Anonimização
+#### Etapa 4: Anonimização
 - **API**: Shiva (interna do TRT-13)
 - **Técnicas**:
   - NER baseado em Transformer
@@ -54,61 +59,55 @@ O LEIA (*Legal-Administrative Enrichment and Information Annotation Dataset*) é
   - Expressões regulares para identificadores brasileiros
 - **Substituição**: Placeholders genéricos (`[NOME]`, `[CPF]`, etc.)
 
-#### Etapa 4: Segmentação
+#### Etapa 5: Segmentação
 - **Tamanho**: ~200 palavras por chunk
 - **Estratégia**: Segmentação não sobreposta
 - **Justificativa**: Compatibilidade com modelos Transformer (512 tokens)
 
-#### Etapa 5: Reformulação Contextual
-- **Modelo**: Gemini 1.5 Flash
-- **Objetivo**: Camada adicional de privacidade
+#### Etapa 6: Reformulação Contextual
+- **Modelo**: Gemini 2.5 Flash
+- **Objetivo**: Camada adicional de privacidade + desvinculação das formulações originais
 - **Preservação**: Significado e contexto original
 - **Alteração**: Estrutura de frases e vocabulário
 
-#### Etapa 6: Geração Sintética
-- **Modelo**: Gemini 1.5 Flash
-- **Foco**: Classe minoritária (Sigiloso)
-- **Tipos**: Documentos médicos, jurídicos, de RH
-- **Níveis**: Alto e Médio sigilo
-
-#### Etapa 7: Rotulagem Automática
+#### Etapa 7: Geração Sintética
 - **Modelo**: Gemini 2.5 Flash
-- **Métricas**: Classificação, justificativa, confiança
-- **Validação**: Índice Kappa de Cohen = 0.512
+- **Foco**: Classe minoritária (Sigiloso)
+- **Estratégia**: Criação de dados (Data Creation)
+- **Resultado**: 1.500 trechos adicionais
+- **Tipos**: Documentos médicos, jurídicos, de RH
 
-#### Etapa 8: Validação Humana
-- **Amostra**: 10% dos registros
-- **Critério**: Seleção aleatória
-- **Responsável**: Pesquisador especialista
+#### Etapa 8: Rotulagem Semiautomática
+- **Modelo**: Gemini 2.5 Flash (classificação zero-shot)
+- **Saída**: Classe + justificativa + confiança
+- **Validação**: Índice Kappa de Cohen = 0.865 ("quase perfeito")
+- **Amostra validada**: 10% dos registros
 
 #### Etapa 9: Balanceamento Final
 - **Estratégia**: Subamostragem inteligente
 - **Critério**: Maior escore de confiança
-- **Resultado**: 2.000 registros por classe
+- **Resultado**: ~2.000 registros por classe (~6.000 total)
 
 ## 📊 Especificações Técnicas
 
-### Dataset Final
+### Estrutura de Dados MongoDB
 
 | Característica | Especificação |
 |----------------|---------------|
-| **Formato** | JSON |
+| **Banco de Dados** | `dataset_treinamento` |
+| **Coleção Principal** | `chunks_treinamento` |
 | **Encoding** | UTF-8 |
-| **Tamanho** | ~6.8MB |
-| **Registros** | 6.000 |
-| **Classes** | 3 (balanceadas) |
+| **Classes** | 3 (0: Sigiloso, 1: Interno, 2: Público) |
 | **Comprimento Médio** | ~200 palavras |
 
-### Esquema de Dados
+### Esquema de Dados - chunks_treinamento
 
 ```json
 {
-  "_id": {
-    "$oid": "string"
-  },
+  "_id": "ObjectId",
   "texto": "string",
   "classificacao_acesso": "integer (0, 1, 2)",
-  "fonte": "string ('reformulação' ou 'sintético')"
+  "fonte": "string"
 }
 ```
 
@@ -124,144 +123,60 @@ O LEIA (*Legal-Administrative Enrichment and Information Annotation Dataset*) é
 
 ### 1. `gemini_classificacao_utils.py`
 
-#### Arquitetura
-```python
-class ClassificadorGemini:
-    def __init__(self, api_keys):
-        self.api_keys = api_keys
-        self.current_key_index = 0
-        self.model = self.configurar_modelo()
-    
-    def classificar_chunk(self, texto):
-        # Implementação da classificação
-        pass
-```
-
 #### Funcionalidades Principais
-- **Gerenciamento de Chaves**: Rotação automática para rate limiting
-- **Tratamento de Erros**: Retry com diferentes chaves
-- **Parsing Robusto**: Extração de classificação, justificativa e confiança
-- **Logging Detalhado**: Monitoramento de performance
+- **Classificação Semiautomática**: Análise de conformidade documental com LGPD/LAI
+- **Parsing Estruturado**: Extração de classificação (0-2), justificativa e confiança
+- **Integração MongoDB**: Processamento de chunks pendentes na coleção
+- **Logging Detalhado**: Monitoramento de performance e debug
+- **Zero-shot Classification**: Uso do Gemini 2.5 Flash
 
 #### Prompt de Classificação
 ```
-Você é um Analista Sênior de Classificação de Dados...
+Análise de Conformidade Documental - Contexto Administrativo Brasileiro
 PRINCÍPIOS-CHAVE:
 1. ATO PREPARATÓRIO vs. ATO FINAL
 2. INVESTIGAÇÃO E APURAÇÃO = SIGILO
 3. DADO PESSOAL EM CONTEXTO ADMINISTRATIVO
+4. TRANSPARÊNCIA vs. PRIVACIDADE (LAI/LGPD)
 ```
 
 ### 2. `sintetizador_de_chunks.py`
 
-#### Arquitetura
-```python
-class SintetizadorChunks:
-    def __init__(self, batch_size=10):
-        self.batch_size = batch_size
-        self.model = self.configurar_gemini()
-    
-    def processar_lote(self, chunks):
-        # Processamento em lotes
-        pass
-```
-
 #### Funcionalidades Principais
-- **Processamento em Lotes**: Eficiência operacional
-- **Substituição de Placeholders**: Dados fictícios realistas
-- **Preservação de Contexto**: Jargão técnico mantido
-- **Controle de Qualidade**: Escore de confiança
+- **Reformulação Contextual**: Reescrita completa de textos preservando significado
+- **Substituição de Placeholders**: Dados fictícios realistas e plausíveis
+- **Preservação de Contexto**: Jargão técnico e nível de sigilo mantidos
+- **Controle de Qualidade**: Escore de confiança (0.0-1.0)
+- **Limite de Tamanho**: Máximo 200 palavras por texto
 
-#### Prompt de Sintetização
-```
-Você é um especialista na criação de dados sintéticos...
-REGRAS PRINCIPAIS:
-1. REESCRITA E DADOS FICTÍCIOS
-2. SUBSTITUIÇÃO DE PLACEHOLDERS
-3. MANTER CONTEXTO E SENSIBILIDADE
-```
+#### Configurações
+- **Modelo**: Gemini 2.5 Flash
+- **Técnica**: Reformulação semântica
+- **Objetivo**: Camada adicional de privacidade
 
 ### 3. `aumentador_dataset_sigiloso.py`
 
-#### Arquitetura
-```python
-class GeradorSigiloso:
-    def __init__(self):
-        self.model = self.configurar_gemini()
-        self.niveis_sigilo = ['ALTO', 'MÉDIO']
-    
-    def gerar_documento_sigiloso(self, inspiracao):
-        # Geração baseada em inspiração
-        pass
-```
-
 #### Funcionalidades Principais
-- **Transformação Conceitual**: Pivô inteligente de conceitos
-- **Níveis de Sigilo**: Alto e Médio
-- **Tipos de Documentos**: Médicos, jurídicos, RH
-- **Realismo**: Estrutura e jargão apropriados
+- **Geração Sintética**: Criação de dados para classe minoritária
+- **Template Estruturado**: Prompt com persona de especialistas (Corregedor-Geral + DPO)
+- **Processo em 4 Etapas**: Semente conceitual → Combinação de eixos → Transformação → Geração
+- **Controle de Autenticidade**: Jargão técnico, normas, códigos específicos
+- **Resultado**: 1.500 trechos adicionais para classe 'Sigiloso'
 
 #### Tipos de Documentos Gerados
-
-**Documentos Médicos:**
-- Laudos de doenças graves (CID-10)
-- Atestados médicos detalhados
-- Prontuários psiquiátricos
-
-**Documentos Jurídicos:**
-- Processos administrativos disciplinares
-- Relatórios de investigação
-- Comunicações confidenciais
-
-**Documentos de RH:**
-- Avaliações de desempenho
-- Reclamações de assédio
-- Processos internos
+- **Licenças médicas sigilosas**
+- **Processos disciplinares**
+- **Documentos com dados sensíveis LGPD**
+- **Investigações internas**
 
 ### 4. `rotular_chunks_gemini.py`
 
-#### Arquitetura
-```python
-class PreparadorDataset:
-    def __init__(self, db_origem, db_destino):
-        self.col_origem = db_origem
-        self.col_destino = db_destino
-    
-    def transferir_melhores_exemplos(self):
-        # Seleção por confiança
-        pass
-```
-
 #### Funcionalidades Principais
-- **Seleção Inteligente**: Maior escore de confiança
-- **Mapeamento de Fontes**: Reformulação vs. Sintético
-- **Preparação Final**: Formato para treinamento
-
-### 5. `revisar_com_gemini-2.5-flash.py`
-
-#### Arquitetura
-```python
-class RevisorWeb:
-    def __init__(self, chrome_port=9222):
-        self.chrome_port = chrome_port
-        self.driver = self.conectar_chrome()
-    
-    def revisar_documento(self, texto, prompt):
-        # Automação web via Selenium
-        pass
-```
-
-#### Funcionalidades Principais
-- **Automação Web**: Selenium WebDriver
-- **Conexão Chrome**: Modo debug remoto
-- **Tratamento de Timeouts**: Retry automático
-- **Gestão de Sessão**: Recarregamento periódico
-
-#### Configurações Técnicas
-- **Porta Debug**: 9222 (configurável)
-- **Delay entre documentos**: 60 segundos
-- **Recarregamento**: A cada 100 documentos
-- **Timeout de resposta**: 120 segundos
+- **Rotulagem Zero-shot**: Uso do Gemini 2.5 Flash
+- **Saída Estruturada**: Classe + justificativa + confiança
+- **Processamento em Lote**: Chunks pendentes no MongoDB
+- **Controle de Qualidade**: Validação baseada em confiança
+- **Integração**: Coleção `chunks_treinamento`
 
 ## 🔒 Segurança e Privacidade
 
@@ -272,68 +187,66 @@ class RevisorWeb:
    - Microsoft Presidio
    - Regex para identificadores brasileiros
 
-2. **Dados Sintéticos**
-   - 100% dos textos são fictícios
-   - Reformulação contextual
-   - Geração sintética
+2. **Reformulação Contextual**
+   - 100% dos textos reescritos
+   - Desvinculação das formulações originais
+   - Preservação apenas do significado
 
-3. **Validação Humana**
-   - Verificação de qualidade
+3. **Dados Sintéticos**
+   - Geração artificial para classe minoritária
+   - Nenhum documento original no corpus final
+
+4. **Validação Humana**
+   - Verificação de qualidade (10% dos registros)
    - Confirmação de privacidade
-   - Amostra representativa
+   - Sistema web especializado
 
 ### Conformidade Legal
 
 - ✅ **LGPD**: Lei Geral de Proteção de Dados
 - ✅ **LAI**: Lei de Acesso à Informação
-- ✅ **Ciência Aberta**: Licença Creative Commons
+- ✅ **Ciência Aberta**: Licença Creative Commons (CC BY-SA 4.0)
 - ✅ **Transparência**: Metodologia documentada
 
 ## 📈 Métricas de Qualidade
 
-### Validação Automática
-- **Índice Kappa de Cohen**: 0.512 (concordância moderada)
+### Validação Semiautomática
+- **Índice Kappa de Cohen**: 0.865 ("quase perfeito")
 - **Modelo**: Gemini 2.5 Flash
-- **Amostra**: Corpus completo
+- **Acurácia**: ~91%
+- **Método**: Classificação zero-shot
 
 ### Validação Humana
 - **Amostra**: 10% dos registros
 - **Critério**: Seleção aleatória
 - **Responsável**: Pesquisador especialista
-- **Resultado**: Validação de qualidade e privacidade
+- **Sistema**: Interface web customizada
 
-### Balanceamento
-- **Distribuição Final**: 2.000 registros por classe
-- **Estratégia**: Subamostragem inteligente
-- **Critério**: Maior escore de confiança
+### Validação Experimental
+- **Modelo**: Legal-BERT (fine-tuning)
+- **F1-Score**: 0.94
+- **Divisão**: 80% treino, 10% validação, 10% teste
+- **Performance**: Equilibrada entre as 3 classes
 
 ## 🚀 Performance e Escalabilidade
 
-### Otimizações Implementadas
-
-1. **Processamento em Lotes**
-   - Tamanho: 10 chunks por lote
-   - Redução de overhead de API
-   - Melhor utilização de recursos
-
-2. **Gerenciamento de Rate Limiting**
-   - Múltiplas chaves de API
-   - Rotação automática
-   - Retry inteligente
-
-3. **Armazenamento Eficiente**
-   - MongoDB para processamento
-   - JSON para distribuição
-   - Índices otimizados
-
-### Métricas de Performance
+### Resultados do Pipeline
 
 | Métrica | Valor |
 |---------|-------|
-| **Tempo de Processamento** | ~2-3 horas (corpus completo) |
-| **Taxa de Sucesso** | >95% |
-| **Uso de Memória** | ~2GB |
-| **Taxa de Erro** | <5% |
+| **Corpus Inicial** | Documentos públicos do TRT-13 |
+| **Corpus Após Enriquecimento** | 11.478 trechos |
+| **Corpus Final (Balanceado)** | ~6.000 trechos |
+| **Distribuição Final** | 2.000 registros por classe |
+| **Taxa de Validação** | 10% validação humana |
+
+### Estatísticas do Dataset Final
+
+- **Classe Sigiloso (0)**: ~2.000 registros
+- **Classe Interno (1)**: ~2.000 registros  
+- **Classe Público (2)**: ~2.000 registros
+- **Origem**: Reformulação contextual + geração sintética
+- **Compatibilidade**: Modelos Transformer (BERT, RoBERTa, Legal-BERT)
 
 ## 🔧 Configuração e Deploy
 
@@ -342,9 +255,9 @@ class RevisorWeb:
 - **Python**: 3.8+
 - **MongoDB**: 4.4+
 - **Google Chrome**: Para automação web
-- **RAM**: 4GB+
-- **Disco**: 10GB+
-- **Rede**: Conexão estável com internet
+- **RAM**: 8GB+
+- **Disco**: 20GB+
+- **GPU**: Recomendada para fine-tuning
 
 ### Configuração de Ambiente
 
@@ -356,128 +269,90 @@ pip install -r requirements.txt
 sudo systemctl start mongod
 sudo systemctl enable mongod
 
-# Configuração do Chrome para automação
-google-chrome --remote-debugging-port=9222 --user-data-dir=~/.config/google-chrome/Default
-
 # Configuração das variáveis de ambiente
 cp .env.example .env
-# Editar .env com suas credenciais
+# Editar .env com suas credenciais Gemini
 ```
 
-### Monitoramento
+### Sistema de Validação Humana
 
 ```python
-import logging
-import psutil
-
-# Configuração de logs
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('leia.log'),
-        logging.StreamHandler()
-    ]
-)
-
-# Monitoramento de recursos
-def monitorar_sistema():
-    return {
-        'cpu': psutil.cpu_percent(),
-        'memory': psutil.virtual_memory().percent,
-        'disk': psutil.disk_usage('/').percent
-    }
+# Interface web para curadoria
+# Componentes:
+# - ID do Documento
+# - Fonte (reformulação/sintético)
+# - Texto completo
+# - Classificação original (LLM)
+# - Confiança da classificação
+# - Justificativa da IA (XAI)
+# - Botões de classificação final
 ```
 
-## 🧪 Testes e Validação
+## 🧪 Validação Experimental
 
-### Testes Unitários
+### Configuração do Experimento
 
 ```python
-import pytest
-from scripts.gemini_classificacao_utils import classificar_chunk_gemini
-
-def test_classificacao_sigiloso():
-    texto = "Relatório de investigação disciplinar..."
-    resultado = classificar_chunk_gemini(texto, keys, key_names, model)
-    assert resultado[0] == 0  # Deve ser classificado como sigiloso
-
-def test_classificacao_publico():
-    texto = "Edital de concurso público..."
-    resultado = classificar_chunk_gemini(texto, keys, key_names, model)
-    assert resultado[0] == 2  # Deve ser classificado como público
+# Modelo: Legal-BERT
+# Dataset: CLARA (~6.000 registros)
+# Divisão: 80% treino, 10% validação, 10% teste
+# Épocas: 3
+# Batch size: 16
+# Taxa de aprendizado: 2 × 10^-5
+# Hardware: GPU NVIDIA A100
 ```
 
-### Testes de Integração
+### Resultados por Classe
 
-```python
-def test_pipeline_completo():
-    # Teste do pipeline completo
-    # 1. Carregar dados
-    # 2. Processar
-    # 3. Validar resultado
-    pass
-```
-
-### Validação de Qualidade
-
-```python
-def validar_qualidade_dataset():
-    # Verificar balanceamento
-    # Verificar qualidade dos textos
-    # Verificar conformidade com LGPD/LAI
-    pass
-```
+| Classe | Precisão | Revocação | F1-Score | Suporte |
+|--------|----------|-----------|----------|---------|
+| **Sigiloso (0)** | 0.95 | 0.93 | 0.94 | 200 |
+| **Interno (1)** | 0.92 | 0.94 | 0.93 | 200 |
+| **Público (2)** | 0.94 | 0.94 | 0.94 | 200 |
+| **Macro Avg** | - | - | **0.94** | 600 |
 
 ## 📚 Referências Técnicas
 
 ### Bibliotecas Utilizadas
 
-- **google-generativeai**: API do Google Gemini
+- **google-generativeai**: API do Google Gemini 2.5 Flash
 - **pymongo**: Cliente MongoDB
 - **python-dotenv**: Gerenciamento de variáveis de ambiente
-- **selenium**: Automação web
-- **pyperclip**: Manipulação de clipboard
+- **transformers**: Hugging Face Transformers (Legal-BERT)
+- **torch**: PyTorch para fine-tuning
 - **pandas**: Manipulação de dados
-- **numpy**: Computação numérica
+- **sklearn**: Métricas de avaliação
 
 ### APIs Externas
 
-- **Google Gemini API**: Classificação e geração de texto
-- **MongoDB**: Armazenamento de dados
+- **Google Gemini API**: Reformulação contextual e classificação
+- **MongoDB**: Armazenamento de dados (`chunks_treinamento`)
 - **API Shiva**: Anonimização (interna do TRT-13)
 
-### Padrões e Metodologias
+### Modelos Utilizados
 
-- **Data Augmentation**: Técnicas de aumento de dados
-- **Active Learning**: Validação humana seletiva
-- **Privacy by Design**: Privacidade desde o design
-- **Explainable AI**: Justificativas para classificações
+- **Gemini 2.5 Flash**: Reformulação, geração sintética e classificação
+- **Legal-BERT**: Validação experimental (fine-tuning)
+- **Transformer NER**: Anonimização (via API Shiva)
+- **Microsoft Presidio**: Detecção de PIIs
 
 ## 🔮 Roadmap Técnico
 
-### Versão 2.0 (Planejada)
+### Melhorias Planejadas
 
 - [ ] **Dataset Dinâmico**: Atualizações contínuas
-- [ ] **Modelos Pré-treinados**: Fine-tuning específico
+- [ ] **Expansão Interinstitucional**: Outros órgãos públicos
+- [ ] **Modelos Especializados**: Fine-tuning para domínio específico
 - [ ] **Interface Web**: Classificação interativa
-- [ ] **API REST**: Serviço de classificação
-- [ ] **Integração**: Sistemas de gestão documental
+- [ ] **API REST**: Serviço de classificação em tempo real
 
-### Melhorias Técnicas
+### Aplicações Futuras
 
-- [ ] **Cache Inteligente**: Redução de chamadas de API
-- [ ] **Processamento Paralelo**: Aceleração de pipeline
-- [ ] **Validação Automática**: Verificação contínua
-- [ ] **Monitoramento Avançado**: Métricas em tempo real
-
-### Expansão de Domínio
-
-- [ ] **Outros Órgãos**: Expansão interinstitucional
-- [ ] **Novos Tipos**: Documentos específicos
-- [ ] **Multilíngue**: Suporte a outros idiomas
-- [ ] **Tempo Real**: Classificação instantânea
+- [ ] **Análise de Risco**: Identificação de padrões de erro
+- [ ] **Auditoria Automática**: Verificação de conformidade
+- [ ] **Governança de Dados**: Políticas automatizadas
+- [ ] **Treinamento Contínuo**: Aprendizado incremental
 
 ---
 
-**Nota**: Esta documentação técnica é atualizada conforme o desenvolvimento do projeto. Para a versão mais recente, consulte o repositório oficial. 
+**Nota**: Esta documentação técnica reflete a metodologia descrita no artigo científico "CLARA: Um Dataset Validado e Enriquecido para Classificação de Conformidade Documental no Setor Público Brasileiro". Para a versão mais recente, consulte o repositório oficial. 
