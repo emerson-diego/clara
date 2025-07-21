@@ -114,69 +114,6 @@
 }
 ```
 
-## 🛠️ Carregamento e Uso
-
-### Python com Pandas
-```python
-import pandas as pd
-import json
-
-# Carregar dataset
-with open('clara_dataset.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
-
-df = pd.DataFrame(data)
-
-# Verificar estrutura
-print(df.info())
-print(df['classificacao_acesso'].value_counts())
-print(df['fonte'].value_counts())
-```
-
-### Python com MongoDB
-```python
-from pymongo import MongoClient
-import pandas as pd
-
-# Conectar ao MongoDB
-client = MongoClient("mongodb://localhost:27017/")
-db = client['dataset_treinamento']
-collection = db['chunks_treinamento']
-
-# Carregar dados
-data = list(collection.find({}))
-df = pd.DataFrame(data)
-
-# Preparar para ML
-X = df['texto'].values
-y = df['classificacao_acesso'].values
-```
-
-## 📋 Validação de Dados
-
-### Verificações Recomendadas
-
-1. **Integridade dos Tipos**:
-   ```python
-   assert df['_id'].dtype == 'object'
-   assert df['texto'].dtype == 'object'
-   assert df['classificacao_acesso'].dtype == 'int64'
-   assert df['fonte'].dtype == 'object'
-   ```
-
-2. **Valores Válidos**:
-   ```python
-   assert df['classificacao_acesso'].isin([0, 1, 2]).all()
-   assert df['fonte'].isin(['reformulação', 'sintético']).all()
-   assert df['texto'].str.len().min() > 0  # Textos não vazios
-   ```
-
-3. **Balanceamento**:
-   ```python
-   class_counts = df['classificacao_acesso'].value_counts()
-   assert abs(class_counts.max() - class_counts.min()) < 100  # Diferença máxima de 100
-   ```
-
 ## 🔒 Considerações de Privacidade
 
 ### Garantias Implementadas
