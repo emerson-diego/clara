@@ -48,11 +48,11 @@
 - **Valores Possíveis**: 0, 1, 2
 - **Distribuição**: Balanceada (~3.333 registros por classe)
 
-| Código | Classe | Descrição | Critérios |
-|--------|--------|-----------|-----------|
-| **0** | Sigiloso | Acesso restrito | Investigações, dados sensíveis, sigilo legal |
-| **1** | Interno | Acesso interno | Atos preparatórios, dados pessoais de servidores |
-| **2** | Público | Acesso público | Atos finais, transparência, interesse geral |
+| Código | Classe | Descrição | Critérios Principais |
+|--------|--------|-----------|---------------------|
+| **0** | Sigiloso | Acesso restrito por força de lei | Informações que coloquem em risco a segurança da sociedade ou do Estado; dados pessoais sensíveis (saúde, origem racial, etc.); segredo de justiça; sigilo fiscal e bancário; investigações em andamento |
+| **1** | Interno | Acesso restrito aos agentes públicos | Documentos preparatórios (despachos, notas técnicas, pareceres) que fundamentam uma decisão futura; informações pessoais de servidores não sensíveis; discussões e deliberações internas |
+| **2** | Público | Acesso irrestrito como regra geral | Atos administrativos finais; contratos; resultados de licitações; atas de reuniões abertas; dados de transparência ativa; informações de interesse coletivo ou geral |
 
 #### `fonte` (String)
 - **Tipo**: Texto categórico
@@ -79,8 +79,8 @@
 
 | Fonte | Descrição | Proporção Estimada |
 |-------|-----------|-------------------|
-| `reformulação` | Textos reescritos | ~75% |
-| `sintético` | Textos gerados | ~25% |
+| `reformulação` | Textos reescritos | ~79% |
+| `sintético` | Textos gerados | ~21% |
 
 ## 🔍 Exemplos de Registros
 
@@ -207,11 +207,19 @@ y = df['classificacao_acesso'].values
 - **Kappa de Cohen**: 0.821 ("quase perfeito")
 - **Acurácia LLM vs Humano**: ~90%
 - **Validação Humana**: 10% dos registros
-- **F1-Score (Legal-BERT)**: 0.94
+
+### Experimentos Comparativos
+**Configuração**: 80% treino, 10% validação, 10% teste | 10 épocas | GPU NVIDIA T400
+
+**BERT Base**: F1-Score médio de 0.87  
+**Legal-BERT**: F1-Score médio de 0.89
 
 ## 📖 Referência
 
 **Artigo**: "CLARA: Um Dataset Validado e Enriquecido para Classificação de Conformidade Documental no Setor Público Brasileiro"
+
+**Dataset**: [https://zenodo.org/uploads/16044257](https://zenodo.org/uploads/16044257)  
+**Código-fonte**: [https://github.com/emerson-diego/CLARA/tree/main/scripts](https://github.com/emerson-diego/CLARA/tree/main/scripts)
 
 **Autores**: 
 - Emerson Diego da Costa Araujo (emerson.diego@academico.ifpb.edu.br) *[autor correspondente]*

@@ -13,7 +13,7 @@ O **CLARA** (*Classificação Legal de Arquivos e Registros Administrativos*) é
 - **3 classes**: Sigiloso (0), Interno (1), Público (2)
 - **100% dados fictícios** (reformulação contextual + geração sintética)
 - **Compatível** com modelos Transformer
-- **F1-Score de 0.94** com Legal-BERT
+- **F1-Score de 0.89** com Legal-BERT
 - **Kappa de Cohen: 0.821** ("quase perfeito")
 
 ## 📊 Estrutura do Dataset
@@ -26,6 +26,14 @@ O **CLARA** (*Classificação Legal de Arquivos e Registros Administrativos*) é
 | **texto** | String | Conteúdo textual (~200 palavras) |
 | **classificacao_acesso** | Integer | Rótulo (0: Sigiloso, 1: Interno, 2: Público) |
 | **fonte** | String | Origem ("reformulação" ou "sintético") |
+
+### Definição das Classes de Acesso
+
+| Código | Classe | Descrição | Critérios Principais |
+|--------|--------|-----------|---------------------|
+| **0** | Sigiloso | Acesso restrito por força de lei | Informações que coloquem em risco a segurança; dados pessoais sensíveis; segredo de justiça; investigações em andamento |
+| **1** | Interno | Acesso restrito aos agentes públicos | Documentos preparatórios; informações pessoais de servidores não sensíveis; discussões internas |
+| **2** | Público | Acesso irrestrito (regra geral) | Atos administrativos finais; contratos; licitações; dados de transparência ativa |
 
 ### Composição Final
 
@@ -46,7 +54,7 @@ O **CLARA** (*Classificação Legal de Arquivos e Registros Administrativos*) é
 4. **Anonimização**: API Shiva (NER + Presidio + Regex)
 5. **Segmentação**: Chunks de ~200 palavras
 6. **Reformulação Contextual**: Reescrita semântica (Gemini 2.5 Flash)
-7. **Geração Sintética**: ~2.500 trechos para classe "Sigiloso"
+7. **Geração Sintética**: ~2.100 trechos para classe "Sigiloso"
 8. **Rotulagem Semiautomática**: Classificação zero-shot + validação humana (10%)
 9. **Balanceamento**: Subamostragem inteligente baseada em confiança
 
@@ -136,15 +144,24 @@ Rotulagem automática do corpus
 - **Acurácia LLM vs Humano**: ~90%
 - **Validação Humana**: 10% dos registros
 
-### Experimento Legal-BERT
-**Configuração**: 80% treino, 10% validação, 10% teste
+### Experimentos Comparativos
+**Configuração**: 80% treino, 10% validação, 10% teste | 10 épocas | GPU NVIDIA T400
 
+#### BERT Base (neuralmind/bert-base-portuguese-cased)
 | Classe | Precisão | Revocação | F1-Score |
 |--------|----------|-----------|----------|
-| **Sigiloso (0)** | 0.95 | 0.93 | **0.94** |
-| **Interno (1)** | 0.92 | 0.94 | **0.93** |
-| **Público (2)** | 0.94 | 0.94 | **0.94** |
-| **Macro Avg** | **0.94** | **0.94** | **0.94** |
+| **Sigiloso (0)** | 0.98 | 0.92 | **0.94** |
+| **Interno (1)** | 0.84 | 0.80 | **0.82** |
+| **Público (2)** | 0.81 | 0.91 | **0.86** |
+| **Macro Avg** | **0.88** | **0.88** | **0.87** |
+
+#### Legal-BERT (raquelsilveira/legalbertpt_fp)
+| Classe | Precisão | Revocação | F1-Score |
+|--------|----------|-----------|----------|
+| **Sigiloso (0)** | 0.97 | 0.93 | **0.95** |
+| **Interno (1)** | 0.79 | 0.89 | **0.84** |
+| **Público (2)** | 0.90 | 0.83 | **0.87** |
+| **Macro Avg** | **0.89** | **0.88** | **0.89** |
 
 ## 🔒 Privacidade e Conformidade
 
@@ -185,10 +202,11 @@ Rotulagem automática do corpus
 - **Damires Yluska Souza Fernandes** - [damires@ifpb.edu.br](mailto:damires@ifpb.edu.br)
 - **Alex Sandro da Cunha Rêgo** - [alex@ifpb.edu.br](mailto:alex@ifpb.edu.br)
 
-## 📞 Contato
+## 📞 Contato e Disponibilidade
 
 - **Email**: emerson.diego@academico.ifpb.edu.br
 - **Repository**: [https://github.com/emerson-diego/clara](https://github.com/emerson-diego/clara)
+- **Dataset**: [https://zenodo.org/uploads/16044257](https://zenodo.org/uploads/16044257)
 - **Issues**: [GitHub Issues](https://github.com/emerson-diego/clara/issues)
 
 ---
